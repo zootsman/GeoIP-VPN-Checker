@@ -199,10 +199,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-4. Running the Script
-​Make sure your VPN is active and connected to the target country.
-​Execute the script in Termux:
-​<!-- end list -->
-
-python full_check.py
