@@ -11,6 +11,8 @@ import locale
 animation_stop_event = threading.Event()
 MIN_ANIMATION_TIME = 2.0
 COLOR_CYCLE_CODES = ["32", "33", "36"] # Green, Yellow, Cyan
+# Обновлено: Осталось 6 GeoIP-проверок
+CHECK_COUNT = 6
 # --------------------------------------------------------
 
 # --- ЛОКАЛИЗАЦИЯ: ОПРЕДЕЛЕНИЕ ЯЗЫКА И СЛОВАРЬ ПЕРЕВОДОВ ---
@@ -33,7 +35,7 @@ TRANSLATIONS = {
         "dns_leak_failure": "DNS LEAK FAILURE: GeoIP (%s) does not match DNS (%s)!",
         "system_passed": "SYSTEM PASSED ALL CHECKS. Access should be granted.",
         "vpn_failed": "VPN FAILED CHECK! Server change recommended.",
-        "dns_leak_check": "CHECK 12: DNS LEAK",
+        "dns_leak_check": "CHECK 7: DNS LEAK",
         "ip_address": "IP ADDRESS",
         "target": "TARGET",
         "resolver_ip": "Resolver IP",
@@ -55,7 +57,7 @@ TRANSLATIONS = {
         "dns_leak_failure": "ПРОВАЛ УТЕЧКИ DNS: GeoIP (%s) не совпадает с DNS (%s)!",
         "system_passed": "СИСТЕМА ПРОШЛА ВСЕ ПРОВЕРКИ. Доступ должен быть предоставлен.",
         "vpn_failed": "VPN НЕ ПРОШЕЛ ПРОВЕРКУ! Рекомендована смена сервера.",
-        "dns_leak_check": "ПРОВЕРКА 12: УТЕЧКА DNS",
+        "dns_leak_check": "ПРОВЕРКА 7: УТЕЧКА DNS",
         "ip_address": "IP АДРЕС",
         "target": "ЦЕЛЬ",
         "resolver_ip": "IP Резолвера",
@@ -79,7 +81,6 @@ def _(text_id):
 global_results = {}
 primary_ip = ""
 main_code = "N/A"
-CHECK_COUNT = 11
 
 def print_colored(text, color_code):
     """Выводит цветной текст в Termux."""
@@ -267,23 +268,26 @@ def main():
     print_colored(f"=== {_('ip_address')}: {primary_ip} | {_('target')}: {main_code} ===", "1;47;30")
     print("-" * 40)
     
-    # --- 11 GeoIP Checks (с обновленными базами) ---
+    # --- 6 GeoIP Checks (обновленный список) ---
     
+    # 1
     check_geoip_and_register("1. Google/Facebook", 'http://ip-api.com/json/?fields=countryCode', {'country_code': 'countryCode'}, "1;36") 
+    # 2
     check_geoip_and_register("2. Netflix/Twitch", 'https://ipinfo.io/json', {'country_code': 'country'}, "1;32") 
+    # 3
     check_geoip_and_register("3. Cloudflare/OpenAI", 'https://www.cloudflare.com/cdn-cgi/trace', None, "1;33") 
-    check_geoip_and_register("4. Microsoft/Spotify", 'https://api.ip.sb/geoip', {'country_code': 'country_code'}, "1;35") 
-    check_geoip_and_register("5. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
-    check_geoip_and_register("6. Forums/Gaming", 'https://extreme-ip-lookup.com/json/', {'country_code': 'countryCode'}, "1;37")
-    check_geoip_and_register("7. Cloud/CDN Check", 'https://ipapi.co/json/', {'country_code': 'country_code'}, "1;31") 
     
-    # --- НОВЫЕ И БОЛЕЕ НАДЕЖНЫЕ ПРОВЕРКИ ---
+    # 5
+    check_geoip_and_register("5. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
+    
+    # 8 (был 8, теперь 5-й в списке)
     check_geoip_and_register("8. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33") 
-    check_geoip_and_register("9. Professional GeoIP", 'https://ipwhois.io/json/', {'country_code': 'country_code'}, "1;37") 
+    
+    # 10 (был 10, теперь 6-й в списке)
     check_geoip_and_register("10. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
-    check_geoip_and_register("11. Geolocation-db", 'https://geolocation-db.com/json/', {'country_code': 'country_code'}, "1;36") 
 
     # --- DNS Leak Check ---
+    # Обновлен номер проверки на 7
     dns_code = check_dns_leak()
 
     # --- Final Output ---
