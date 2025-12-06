@@ -267,7 +267,7 @@ def main():
     print_colored(f"=== {_('ip_address')}: {primary_ip} | {_('target')}: {main_code} ===", "1;47;30")
     print("-" * 40)
     
-    # --- 11 GeoIP Checks (с анимацией) ---
+    # --- 11 GeoIP Checks (с обновленными базами) ---
     
     check_geoip_and_register("1. Google/Facebook", 'http://ip-api.com/json/?fields=countryCode', {'country_code': 'countryCode'}, "1;36") 
     check_geoip_and_register("2. Netflix/Twitch", 'https://ipinfo.io/json', {'country_code': 'country'}, "1;32") 
@@ -276,10 +276,12 @@ def main():
     check_geoip_and_register("5. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
     check_geoip_and_register("6. Forums/Gaming", 'https://extreme-ip-lookup.com/json/', {'country_code': 'countryCode'}, "1;37")
     check_geoip_and_register("7. Cloud/CDN Check", 'https://ipapi.co/json/', {'country_code': 'country_code'}, "1;31") 
-    check_geoip_and_register("8. Regional/Local Check", 'http://coo.su/api/ip.php?json=1', {'country_code': 'country_code'}, "1;33") 
+    
+    # --- НОВЫЕ И БОЛЕЕ НАДЕЖНЫЕ ПРОВЕРКИ ---
+    check_geoip_and_register("8. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33") 
     check_geoip_and_register("9. Professional GeoIP", 'https://ipwhois.io/json/', {'country_code': 'country_code'}, "1;37") 
     check_geoip_and_register("10. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
-    check_geoip_and_register("11. Basic Check", 'https://ifconfig.me/all.json', {'country_code': 'country_code'}, "1;36") 
+    check_geoip_and_register("11. Geolocation-db", 'https://geolocation-db.com/json/', {'country_code': 'country_code'}, "1;36") 
 
     # --- DNS Leak Check ---
     dns_code = check_dns_leak()
