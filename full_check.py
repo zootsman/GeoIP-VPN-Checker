@@ -11,8 +11,8 @@ import locale
 animation_stop_event = threading.Event()
 MIN_ANIMATION_TIME = 2.0
 COLOR_CYCLE_CODES = ["32", "33", "36"] # Green, Yellow, Cyan
-# Обновлено: Осталось 6 GeoIP-проверок
-CHECK_COUNT = 6
+# Обновлено: Теперь 9 GeoIP-проверок
+CHECK_COUNT = 9
 # --------------------------------------------------------
 
 # --- ЛОКАЛИЗАЦИЯ: ОПРЕДЕЛЕНИЕ ЯЗЫКА И СЛОВАРЬ ПЕРЕВОДОВ ---
@@ -35,7 +35,7 @@ TRANSLATIONS = {
         "dns_leak_failure": "DNS LEAK FAILURE: GeoIP (%s) does not match DNS (%s)!",
         "system_passed": "SYSTEM PASSED ALL CHECKS. Access should be granted.",
         "vpn_failed": "VPN FAILED CHECK! Server change recommended.",
-        "dns_leak_check": "CHECK 7: DNS LEAK",
+        "dns_leak_check": "CHECK 10: DNS LEAK",
         "ip_address": "IP ADDRESS",
         "target": "TARGET",
         "resolver_ip": "Resolver IP",
@@ -57,7 +57,7 @@ TRANSLATIONS = {
         "dns_leak_failure": "ПРОВАЛ УТЕЧКИ DNS: GeoIP (%s) не совпадает с DNS (%s)!",
         "system_passed": "СИСТЕМА ПРОШЛА ВСЕ ПРОВЕРКИ. Доступ должен быть предоставлен.",
         "vpn_failed": "VPN НЕ ПРОШЕЛ ПРОВЕРКУ! Рекомендована смена сервера.",
-        "dns_leak_check": "ПРОВЕРКА 7: УТЕЧКА DNS",
+        "dns_leak_check": "ПРОВЕРКА 10: УТЕЧКА DNS",
         "ip_address": "IP АДРЕС",
         "target": "ЦЕЛЬ",
         "resolver_ip": "IP Резолвера",
@@ -268,7 +268,7 @@ def main():
     print_colored(f"=== {_('ip_address')}: {primary_ip} | {_('target')}: {main_code} ===", "1;47;30")
     print("-" * 40)
     
-    # --- 6 GeoIP Checks (обновленный список) ---
+    # --- 9 GeoIP Checks (ФИНАЛЬНЫЙ список) ---
     
     # 1
     check_geoip_and_register("1. Google/Facebook", 'http://ip-api.com/json/?fields=countryCode', {'country_code': 'countryCode'}, "1;36") 
@@ -277,17 +277,27 @@ def main():
     # 3
     check_geoip_and_register("3. Cloudflare/OpenAI", 'https://www.cloudflare.com/cdn-cgi/trace', None, "1;33") 
     
-    # 5
-    check_geoip_and_register("5. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
+    # 4 (Был 5)
+    check_geoip_and_register("4. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
     
-    # 8 (был 8, теперь 5-й в списке)
-    check_geoip_and_register("8. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33") 
+    # 5 (Был 8)
+    check_geoip_and_register("5. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33") 
     
-    # 10 (был 10, теперь 6-й в списке)
-    check_geoip_and_register("10. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
+    # 6 (Был 10)
+    check_geoip_and_register("6. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
+    
+    # 7 (НОВЫЙ: ipapi.co)
+    check_geoip_and_register("7. GeoIP ipapi.co", 'https://ipapi.co/json/', {'country_code': 'country_code'}, "1;36")
+
+    # 8 (НОВЫЙ: ipleak.net)
+    check_geoip_and_register("8. VPN/Ipleak.net", 'https://ip.ipleak.net/json/', {'country_code': 'country_code'}, "1;32") 
+    
+    # 9 (НОВЫЙ: api.db-ip.com)
+    check_geoip_and_register("9. GeoIP DB-IP.com", 'https://api.db-ip.com/v2/free/self', {'country_code': 'countryCode'}, "1;33")
+
 
     # --- DNS Leak Check ---
-    # Обновлен номер проверки на 7
+    # Обновлен номер проверки на 10
     dns_code = check_dns_leak()
 
     # --- Final Output ---
