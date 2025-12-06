@@ -4,12 +4,76 @@ import re
 import sys
 import threading
 import time
-import io # Добавлено для совместимости
+import io
+import locale
 
-# --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ АНИМАЦИИ И СЧЕТА ---
+# --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ АНИМАЦИИ И ЛОКАЛИЗАЦИИ ---
 animation_stop_event = threading.Event()
-MIN_ANIMATION_TIME = 2.0 # Минимальное время анимации в секундах
-# ---------------------------------------------
+MIN_ANIMATION_TIME = 2.0
+COLOR_CYCLE_CODES = ["32", "33", "36"] # Green, Yellow, Cyan
+# --------------------------------------------------------
+
+# --- ЛОКАЛИЗАЦИЯ: ОПРЕДЕЛЕНИЕ ЯЗЫКА И СЛОВАРЬ ПЕРЕВОДОВ ---
+SYSTEM_LANG = 'en'
+try:
+    lang_code, _ = locale.getdefaultlocale()
+    if lang_code:
+        SYSTEM_LANG = lang_code[:2].lower()
+except Exception:
+    pass
+
+TRANSLATIONS = {
+    'en': {
+        "connecting": "Checking...",
+        "country_code": "Country Code",
+        "error_connection": "Connection or data retrieval error.",
+        "final_check": "FINAL COMPLIANCE CHECK",
+        "geoip_failure": "GEOIP FAILURE: Discrepancies or errors found.",
+        "geoip_verification": "GEOIP VERIFICATION: %s out of %s databases see country %s.",
+        "dns_leak_failure": "DNS LEAK FAILURE: GeoIP (%s) does not match DNS (%s)!",
+        "system_passed": "SYSTEM PASSED ALL CHECKS. Access should be granted.",
+        "vpn_failed": "VPN FAILED CHECK! Server change recommended.",
+        "dns_leak_check": "CHECK 12: DNS LEAK",
+        "ip_address": "IP ADDRESS",
+        "target": "TARGET",
+        "resolver_ip": "Resolver IP",
+        "dns_geolocation": "DNS Geolocation",
+        "failed_resolver": "Failed to get resolver IP.",
+        "error_dns_geoip": "Error getting GeoIP for DNS resolver.",
+        "dns_check_failed": "DNS check failed.",
+        "dig_not_found": "⚠ 'dig' COMMAND NOT FOUND. Install: pkg install dnsutils",
+        "could_not_get_ip": "Could not get main IP. Check internet connection.",
+        "discrepancy": "!!! DISCREPANCY with main IP (%s)"
+    },
+    'ru': {
+        "connecting": "Проверка...",
+        "country_code": "Код страны",
+        "error_connection": "Ошибка соединения или получения данных.",
+        "final_check": "ФИНАЛЬНАЯ ПРОВЕРКА СООТВЕТСТВИЯ",
+        "geoip_failure": "ПРОВАЛ GEOIP: Обнаружены расхождения или ошибки.",
+        "geoip_verification": "ПРОВЕРКА GEOIP: %s из %s баз данных видят страну %s.",
+        "dns_leak_failure": "ПРОВАЛ УТЕЧКИ DNS: GeoIP (%s) не совпадает с DNS (%s)!",
+        "system_passed": "СИСТЕМА ПРОШЛА ВСЕ ПРОВЕРКИ. Доступ должен быть предоставлен.",
+        "vpn_failed": "VPN НЕ ПРОШЕЛ ПРОВЕРКУ! Рекомендована смена сервера.",
+        "dns_leak_check": "ПРОВЕРКА 12: УТЕЧКА DNS",
+        "ip_address": "IP АДРЕС",
+        "target": "ЦЕЛЬ",
+        "resolver_ip": "IP Резолвера",
+        "dns_geolocation": "Геолокация DNS",
+        "failed_resolver": "Не удалось получить IP резолвера.",
+        "error_dns_geoip": "Ошибка получения GeoIP для DNS резолвера.",
+        "dns_check_failed": "Проверка DNS завершилась с ошибкой.",
+        "dig_not_found": "⚠ КОМАНДА 'dig' НЕ НАЙДЕНА. Установите: pkg install dnsutils",
+        "could_not_get_ip": "Не удалось получить основной IP. Проверьте подключение.",
+        "discrepancy": "!!! РАСХОЖДЕНИЕ с основным IP (%s)"
+    }
+}
+
+def _(text_id):
+    """Возвращает перевод по ID текста."""
+    lang_dict = TRANSLATIONS.get(SYSTEM_LANG, TRANSLATIONS['en'])
+    return lang_dict.get(text_id, TRANSLATIONS['en'].get(text_id, f"MISSING_TRANSLATION:{text_id}"))
+# --------------------------------------------------------------------
 
 # Dictionary to store results
 global_results = {}
@@ -24,7 +88,6 @@ def print_colored(text, color_code):
 def get_data(url, key_map=None):
     """Универсальная функция для запросов GeoIP."""
     try:
-        # Уменьшаем таймаут, так как мы его компенсируем минимальным временем анимации
         response = requests.get(url, timeout=5) 
         
         if 'json' in response.headers.get('Content-Type', '').lower():
@@ -56,24 +119,30 @@ def get_data(url, key_map=None):
     except Exception:
         return None
 
-# --- ФУНКЦИЯ АНИМАЦИИ ---
+# --- ФУНКЦИЯ АНИМАЦИИ С ПУЛЬСАЦИЕЙ И ЦВЕТОМ ---
 def spinner():
-    """Анимация, имитирующая передачу данных."""
-    chars = ["|", "/", "-", "\\"]
+    """Анимация, имитирующая пульсацию передачи данных с изменением цвета."""
     
-    # Символ начала "провода"
-    sys.stdout.write("🔌 [Checking...]")
+    # Новая последовательность символов для имитации пульсации
+    pulse_chars = ["∙", "●", "○", "●"] 
     
     while not animation_stop_event.is_set():
-        # Перемещаемся в начало строки для обновления спиннера
-        sys.stdout.write(f"\r🔌 [Checking...] {chars[int(time.time() * 4) % len(chars)]}")
+        # Циклическое изменение символа
+        current_char = pulse_chars[int(time.time() * 4) % len(pulse_chars)] 
+        
+        # Циклическое изменение цвета
+        color_index = int(time.time() * 8) % len(COLOR_CYCLE_CODES)
+        color = COLOR_CYCLE_CODES[color_index]
+        
+        # Вывод строки с цветом и возвратом цвета к стандартному \033[0m
+        sys.stdout.write(f"\r\033[{color}m🔌 [{_('connecting')}] {current_char}\033[0m")
         sys.stdout.flush()
-        time.sleep(0.1)
+        time.sleep(0.08)
 
-    # Очищаем строку после завершения, чтобы не мешать выводу результата
+    # Очищаем строку после завершения
     sys.stdout.write("\r" + " " * 30 + "\r")
     sys.stdout.flush()
-# -------------------------
+# ------------------------------------------
 
 def check_geoip_and_register(name, url, key_map, color):
     """
@@ -101,23 +170,23 @@ def check_geoip_and_register(name, url, key_map, color):
         
     # 4. Остановка потока анимации
     animation_stop_event.set()
-    spinner_thread.join() # Ждем завершения потока анимации
+    spinner_thread.join()
     
     # 5. Вывод результата
     if data and data.get('country_code'):
         code = data.get('country_code')
         global_results[name] = code
-        print(f"Country Code: {code}")
+        print(f"{_('country_code')}: {code}")
         
         if main_code != "N/A" and code != main_code:
-            print_colored(f"!!! DISCREPANCY with main IP ({main_code})", "31")
+            print_colored(_('discrepancy') % main_code, "31")
     else:
-        print_colored("Connection or data retrieval error.", "31")
+        print_colored(_('error_connection'), "31")
     print("-" * 40)
     
 def check_dns_leak():
     """Performs DNS Leak check using the dig command."""
-    print_colored("--- CHECK 12: DNS LEAK ---", "1;37")
+    print_colored(f"--- {_('dns_leak_check')} ---", "1;37")
     
     try:
         process = subprocess.run(
@@ -129,7 +198,7 @@ def check_dns_leak():
         resolver_ip = process.stdout.splitlines()[0].strip()
         
         if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', resolver_ip):
-             print_colored("Failed to get resolver IP.", "31")
+             print_colored(_('failed_resolver'), "31")
              return "ERROR"
              
         dns_geo_url = f'http://ip-api.com/json/{resolver_ip}?fields=countryCode'
@@ -137,24 +206,24 @@ def check_dns_leak():
         
         if dns_geo_data and dns_geo_data.get('country_code'):
             dns_code = dns_geo_data.get('country_code')
-            print(f"Resolver IP: {resolver_ip}")
-            print(f"DNS Geolocation: {dns_code}")
+            print(f"{_('resolver_ip')}: {resolver_ip}")
+            print(f"{_('dns_geolocation')}: {dns_code}")
             return dns_code
         
-        print_colored("Error getting GeoIP for DNS resolver.", "31")
+        print_colored(_('error_dns_geoip'), "31")
         return "ERROR"
 
     except FileNotFoundError:
-        print_colored("⚠ 'dig' COMMAND NOT FOUND. Install: pkg install dnsutils", "41")
+        print_colored(_('dig_not_found'), "41")
         return "ERROR"
     except Exception:
-        print_colored("DNS check failed.", "31")
+        print_colored(_('dns_check_failed'), "31")
         return "ERROR"
 
 def check_compliance(dns_code):
     """Final check for IP and DNS consistency."""
     
-    print_colored("\n--- FINAL COMPLIANCE CHECK ---", "1;37")
+    print_colored(f"\n--- {_('final_check')} ---", "1;37")
     
     # 1. GeoIP Consistency Check
     geoip_match = True
@@ -166,37 +235,36 @@ def check_compliance(dns_code):
             successful_checks += 1
             
     if geoip_match and successful_checks > 0:
-        print_colored(f"✅ GEOIP VERIFICATION: {successful_checks} out of {CHECK_COUNT} databases see country {main_code}.", "42")
+        print_colored(_('geoip_verification') % (successful_checks, CHECK_COUNT, main_code), "42")
     else:
-        print_colored(f"❌ GEOIP FAILURE: Discrepancies or errors found. Successful checks: {successful_checks}/{CHECK_COUNT}.", "41")
+        print_colored(_('geoip_failure'), "41")
 
     # 2. DNS Check
     if dns_code != "ERROR" and dns_code != main_code:
-        print_colored(f"❌ DNS LEAK FAILURE: GeoIP ({main_code}) does not match DNS ({dns_code})!", "41")
+        print_colored(_('dns_leak_failure') % (main_code, dns_code), "41")
     elif dns_code == main_code:
-        print_colored(f"✅ DNS VERIFICATION: DNS server is located in country {main_code}.", "42")
+        print_colored(f"✅ DNS VERIFICATION: {_('dns_geolocation')} {_('country_code')}: {main_code}.", "42")
     
     if geoip_match and dns_code == main_code:
-         print_colored("\n🚀 SYSTEM PASSED ALL CHECKS. Access should be granted.", "44")
+         print_colored(f"\n🚀 {_('system_passed')}", "44")
     elif not geoip_match or dns_code != main_code:
-         print_colored("\n⚠ VPN FAILED CHECK! Server change recommended.", "43;30")
+         print_colored(f"\n⚠ {_('vpn_failed')}", "43;30")
 
 def main():
     global main_code, primary_ip
     
     ip_api_map = {'ip': 'query', 'country_code': 'countryCode'}
-    # Используем get_data для первой проверки без анимации
     ip_api_data = get_data('http://ip-api.com/json/?fields=countryCode,query', ip_api_map) 
     
     if not ip_api_data or not ip_api_data.get('country_code'):
-        print_colored("Could not get main IP. Check internet connection.", "41")
+        print_colored(_('could_not_get_ip'), "41")
         sys.exit(1)
 
     main_code = ip_api_data.get('country_code')
     primary_ip = ip_api_data.get('ip')
     global_results['Main'] = main_code
     
-    print_colored(f"=== IP ADDRESS: {primary_ip} | TARGET: {main_code} ===", "1;47;30")
+    print_colored(f"=== {_('ip_address')}: {primary_ip} | {_('target')}: {main_code} ===", "1;47;30")
     print("-" * 40)
     
     # --- 11 GeoIP Checks (с анимацией) ---
@@ -213,7 +281,7 @@ def main():
     check_geoip_and_register("10. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
     check_geoip_and_register("11. Basic Check", 'https://ifconfig.me/all.json', {'country_code': 'country_code'}, "1;36") 
 
-    # --- DNS Leak Check (без анимации, т.к. использует dig) ---
+    # --- DNS Leak Check ---
     dns_code = check_dns_leak()
 
     # --- Final Output ---
@@ -221,4 +289,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
