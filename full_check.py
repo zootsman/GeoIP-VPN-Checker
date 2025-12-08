@@ -14,12 +14,24 @@ COLOR_CYCLE_CODES = ["32", "33", "36"] # Green, Yellow, Cyan
 CHECK_COUNT = 9
 # --------------------------------------------------------
 
+# --- КОНФИГУРАЦИЯ ВСЕХ GEOIP ПРОВЕРОК (ОПТИМИЗАЦИЯ) ---
+GEOIP_CHECKS = [
+    # (Имя, URL, Словарь ключей, Цвет)
+    ("1. Google/Facebook", 'http://ip-api.com/json/?fields=countryCode', {'country_code': 'countryCode'}, "1;36"), 
+    ("2. Netflix/Twitch", 'https://ipinfo.io/json', {'country_code': 'country'}, "1;32"), 
+    ("3. Cloudflare/OpenAI", 'https://www.cloudflare.com/cdn-cgi/trace', None, "1;33"), 
+    ("4. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34"),
+    ("5. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33"), 
+    ("6. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32"), 
+    ("7. GeoIP ipapi.co", 'https://ipapi.co/json/', {'country_code': 'country_code'}, "1;36"),
+    ("8. VPN/Ipleak.net", 'https://ip.ipleak.net/json/', {'country_code': 'country_code'}, "1;32"), 
+    ("9. GeoIP DB-IP.com", 'https://api.db-ip.com/v2/free/self', {'country_code': 'countryCode'}, "1;33"),
+]
+# --------------------------------------------------------
+
 # --- ЛОКАЛИЗАЦИЯ: ОПРЕДЕЛЕНИЕ ЯЗЫКА И СЛОВАРЬ ПЕРЕВОДОВ ---
 SYSTEM_LANG = 'en'
-
-# !!! ИСПРАВЛЕННЫЙ БЛОК ОПРЕДЕЛЕНИЯ ЯЗЫКА !!!
 try:
-    # Используем locale.getlocale() и парсим результат, чтобы избежать DeprecationWarning
     lang_info = locale.getlocale()
     if lang_info and lang_info[0]:
         SYSTEM_LANG = lang_info[0].split('_')[0].lower()
@@ -27,7 +39,6 @@ except Exception:
     SYSTEM_LANG = 'en'
 if not SYSTEM_LANG:
     SYSTEM_LANG = 'en'
-# ----------------------------------------
 
 TRANSLATIONS = {
     'en': {
@@ -129,23 +140,18 @@ def get_data(url, key_map=None):
 def spinner():
     """Анимация, имитирующая пульсацию/активность с изменением цвета."""
     
-    # Надежная последовательность символов спиннера
     pulse_chars = ["|", "/", "-", "\\"] 
     
     while not animation_stop_event.is_set():
-        # Циклическое изменение символа
         current_char = pulse_chars[int(time.time() * 4) % len(pulse_chars)] 
         
-        # Циклическое изменение цвета
         color_index = int(time.time() * 8) % len(COLOR_CYCLE_CODES)
         color = COLOR_CYCLE_CODES[color_index]
         
-        # Вывод строки с цветом
         sys.stdout.write(f"\r\033[{color}m🔌 [{_('connecting')}] {current_char}\033[0m")
         sys.stdout.flush()
         time.sleep(0.08)
 
-    # Очищаем строку после завершения
     sys.stdout.write("\r" + " " * 30 + "\r")
     sys.stdout.flush()
 # ------------------------------------------
@@ -158,27 +164,22 @@ def check_geoip_and_register(name, url, key_map, color):
     
     print_colored(f"--- GeoIP: {name} ---", color)
     
-    # 1. Запись времени начала и запуск анимации
     start_time = time.time()
     animation_stop_event.clear()
     spinner_thread = threading.Thread(target=spinner)
     spinner_thread.start()
     
-    # 2. Блокирующий запрос GeoIP
     data = get_data(url, key_map)
     
-    # 3. Принудительная задержка (если запрос пришел быстро)
     elapsed_time = time.time() - start_time
     
     if elapsed_time < MIN_ANIMATION_TIME:
         time_to_sleep = MIN_ANIMATION_TIME - elapsed_time
         time.sleep(time_to_sleep)
         
-    # 4. Остановка потока анимации
     animation_stop_event.set()
     spinner_thread.join()
     
-    # 5. Вывод результата
     if data and data.get('country_code'):
         code = data.get('country_code')
         global_results[name] = code
@@ -195,7 +196,6 @@ def check_dns_leak():
     print_colored(f"--- {_('dns_leak_check')} ---", "1;37")
     
     try:
-        # Требуется установленная команда dig (dnsutils)
         process = subprocess.run(
             ['dig', '+short', 'whoami.akamai.net', '@resolver1.opendns.com'],
             capture_output=True,
@@ -221,7 +221,6 @@ def check_dns_leak():
         return "ERROR"
 
     except FileNotFoundError:
-        # Если dig не найден, выводим ошибку и возвращаем ERROR
         print_colored(_('dig_not_found'), "41")
         return "ERROR"
     except Exception:
@@ -248,7 +247,6 @@ def check_compliance(dns_code):
         print_colored(_('geoip_failure'), "41")
 
     # 2. DNS Check
-    # dns_code == "ERROR" считается провалом (либо dig не найден, либо произошла ошибка)
     if dns_code != "ERROR" and dns_code != main_code:
         print_colored(_('dns_leak_failure') % (main_code, dns_code), "41")
     elif dns_code == main_code:
@@ -263,7 +261,6 @@ def main():
     global main_code, primary_ip
     
     ip_api_map = {'ip': 'query', 'country_code': 'countryCode'}
-    # Требует установленной библиотеки requests
     ip_api_data = get_data('http://ip-api.com/json/?fields=countryCode,query', ip_api_map) 
     
     if not ip_api_data or not ip_api_data.get('country_code'):
@@ -277,36 +274,12 @@ def main():
     print_colored(f"=== {_('ip_address')}: {primary_ip} | {_('target')}: {main_code} ===", "1;47;30")
     print("-" * 40)
     
-    # --- 9 GeoIP Checks (ФИНАЛЬНЫЙ список) ---
-    
-    # 1
-    check_geoip_and_register("1. Google/Facebook", 'http://ip-api.com/json/?fields=countryCode', {'country_code': 'countryCode'}, "1;36") 
-    # 2
-    check_geoip_and_register("2. Netflix/Twitch", 'https://ipinfo.io/json', {'country_code': 'country'}, "1;32") 
-    # 3
-    check_geoip_and_register("3. Cloudflare/OpenAI", 'https://www.cloudflare.com/cdn-cgi/trace', None, "1;33") 
-    
-    # 4 (Был 5)
-    check_geoip_and_register("4. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
-    
-    # 5 (Был 8)
-    check_geoip_and_register("5. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33") 
-    
-    # 6 (Был 10)
-    check_geoip_and_register("6. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
-    
-    # 7 (НОВЫЙ: ipapi.co)
-    check_geoip_and_register("7. GeoIP ipapi.co", 'https://ipapi.co/json/', {'country_code': 'country_code'}, "1;36")
-
-    # 8 (НОВЫЙ: ipleak.net)
-    check_geoip_and_register("8. VPN/Ipleak.net", 'https://ip.ipleak.net/json/', {'country_code': 'country_code'}, "1;32") 
-    
-    # 9 (НОВЫЙ: api.db-ip.com)
-    check_geoip_and_register("9. GeoIP DB-IP.com", 'https://api.db-ip.com/v2/free/self', {'country_code': 'countryCode'}, "1;33")
+    # --- 9 GeoIP Checks (Используем оптимизированный цикл) ---
+    for name, url, key_map, color in GEOIP_CHECKS:
+        check_geoip_and_register(name, url, key_map, color)
 
 
     # --- DNS Leak Check ---
-    # Обновлен номер проверки на 10
     dns_code = check_dns_leak()
 
     # --- Final Output ---
