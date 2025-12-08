@@ -42,8 +42,8 @@ TRANSLATIONS = {
         "dns_geolocation": "DNS Geolocation",
         "failed_resolver": "Failed to get resolver IP.",
         "error_dns_geoip": "Error getting GeoIP for DNS resolver.",
-        "dns_check_failed": "Проверка DNS завершилась с ошибкой.", # Original (was English)
-        "dig_not_found": "⚠ 'dig' COMMAND NOT FOUND. Install: pkg install dnsutils", # This message was added later but we keep it here as a safety measure.
+        "dns_check_failed": "DNS check failed.",
+        "dig_not_found": "⚠ 'dig' COMMAND NOT FOUND. Install: pkg install dnsutils",
         "could_not_get_ip": "Could not get main IP. Check internet connection.",
         "discrepancy": "!!! DISCREPANCY with main IP (%s)"
     },
@@ -200,7 +200,6 @@ def check_dns_leak():
         
         if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', resolver_ip):
              print_colored(_('failed_resolver'), "31")
-             # В Beta 1 это приводило к 'ERROR'
              return "ERROR"
              
         dns_geo_url = f'http://ip-api.com/json/{resolver_ip}?fields=countryCode'
@@ -216,8 +215,7 @@ def check_dns_leak():
         return "ERROR"
 
     except FileNotFoundError:
-        # В этой версии, если dig не найден, выдаст FileNotFoundError
-        print_colored(_('dig_not_found'), "41") 
+        print_colored(_('dig_not_found'), "41")
         return "ERROR"
     except Exception:
         print_colored(_('dns_check_failed'), "31")
@@ -243,13 +241,11 @@ def check_compliance(dns_code):
         print_colored(_('geoip_failure'), "41")
 
     # 2. DNS Check
-    # В Beta 1 нет обработки "ERROR_MISSING_TOOL"
     if dns_code != "ERROR" and dns_code != main_code:
         print_colored(_('dns_leak_failure') % (main_code, dns_code), "41")
     elif dns_code == main_code:
         print_colored(f"✅ DNS VERIFICATION: {_('dns_geolocation')} {_('country_code')}: {main_code}.", "42")
     
-    # Условие прохождения
     if geoip_match and dns_code == main_code:
          print_colored(f"\n🚀 {_('system_passed')}", "44")
     elif not geoip_match or dns_code != main_code:
@@ -259,7 +255,6 @@ def main():
     global main_code, primary_ip
     
     ip_api_map = {'ip': 'query', 'country_code': 'countryCode'}
-    # Требует установленной библиотеки requests
     ip_api_data = get_data('http://ip-api.com/json/?fields=countryCode,query', ip_api_map) 
     
     if not ip_api_data or not ip_api_data.get('country_code'):
