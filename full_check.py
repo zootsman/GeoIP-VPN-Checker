@@ -1,41 +1,17 @@
-import sys
+import requests
 import subprocess
 import re
+import sys
 import threading
 import time
 import io
 import locale
-import shutil # Добавлен import shutil для проверки наличия команды dig
-
-# --- ФУНКЦИЯ АВТОМАТИЧЕСКОЙ УСТАНОВКИ ЗАВИСИМОСТЕЙ ---
-def install_dependencies():
-    """Проверяет и устанавливает необходимые Python-пакеты (requests)."""
-    try:
-        import requests
-        return requests
-    except ImportError:
-        print("\n\033[33m>>> УСТАНОВКА ЗАВИСИМОСТЕЙ...\033[0m")
-        try:
-            # Используем sys.executable для обеспечения запуска pip правильной версией Python
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
-            print("\033[32m✅ requests успешно установлен.\033[0m\n")
-            import requests
-            return requests
-        except subprocess.CalledProcessError:
-            print("\033[41m!!! ОШИБКА: Не удалось установить библиотеку 'requests' через pip.\033[0m")
-            print("Пожалуйста, установите ее вручную: pip install requests")
-            sys.exit(1)
-
-# Вызываем функцию перед основным кодом
-requests = install_dependencies()
-# --------------------------------------------------------------------
-
 
 # --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ АНИМАЦИИ И ЛОКАЛИЗАЦИИ ---
 animation_stop_event = threading.Event()
 MIN_ANIMATION_TIME = 2.0
 COLOR_CYCLE_CODES = ["32", "33", "36"] # Green, Yellow, Cyan
-# Теперь 9 GeoIP-проверок
+# Обновлено: Теперь 9 GeoIP-проверок
 CHECK_COUNT = 9
 # --------------------------------------------------------
 
@@ -66,8 +42,8 @@ TRANSLATIONS = {
         "dns_geolocation": "DNS Geolocation",
         "failed_resolver": "Failed to get resolver IP.",
         "error_dns_geoip": "Error getting GeoIP for DNS resolver.",
-        "dns_check_failed": "DNS check failed.",
-        "dig_not_found": "⚠ 'dig' COMMAND NOT FOUND. Install: pkg install dnsutils",
+        "dns_check_failed": "Проверка DNS завершилась с ошибкой.", # Original (was English)
+        "dig_not_found": "⚠ 'dig' COMMAND NOT FOUND. Install: pkg install dnsutils", # This message was added later but we keep it here as a safety measure.
         "could_not_get_ip": "Could not get main IP. Check internet connection.",
         "discrepancy": "!!! DISCREPANCY with main IP (%s)"
     },
@@ -213,11 +189,6 @@ def check_dns_leak():
     """Performs DNS Leak check using the dig command."""
     print_colored(f"--- {_('dns_leak_check')} ---", "1;37")
     
-    # Проверка наличия команды 'dig'
-    if not shutil.which('dig'):
-        print_colored(_('dig_not_found'), "41")
-        return "ERROR_MISSING_TOOL"
-        
     try:
         process = subprocess.run(
             ['dig', '+short', 'whoami.akamai.net', '@resolver1.opendns.com'],
@@ -229,6 +200,7 @@ def check_dns_leak():
         
         if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', resolver_ip):
              print_colored(_('failed_resolver'), "31")
+             # В Beta 1 это приводило к 'ERROR'
              return "ERROR"
              
         dns_geo_url = f'http://ip-api.com/json/{resolver_ip}?fields=countryCode'
@@ -243,6 +215,10 @@ def check_dns_leak():
         print_colored(_('error_dns_geoip'), "31")
         return "ERROR"
 
+    except FileNotFoundError:
+        # В этой версии, если dig не найден, выдаст FileNotFoundError
+        print_colored(_('dig_not_found'), "41") 
+        return "ERROR"
     except Exception:
         print_colored(_('dns_check_failed'), "31")
         return "ERROR"
@@ -267,24 +243,23 @@ def check_compliance(dns_code):
         print_colored(_('geoip_failure'), "41")
 
     # 2. DNS Check
-    if dns_code == "ERROR_MISSING_TOOL":
-        # Пропускаем, так как уже выведено сообщение об ошибке
-        pass
-    elif dns_code != "ERROR" and dns_code != main_code:
+    # В Beta 1 нет обработки "ERROR_MISSING_TOOL"
+    if dns_code != "ERROR" and dns_code != main_code:
         print_colored(_('dns_leak_failure') % (main_code, dns_code), "41")
     elif dns_code == main_code:
         print_colored(f"✅ DNS VERIFICATION: {_('dns_geolocation')} {_('country_code')}: {main_code}.", "42")
     
     # Условие прохождения
-    if geoip_match and (dns_code == main_code or dns_code == "ERROR_MISSING_TOOL"):
+    if geoip_match and dns_code == main_code:
          print_colored(f"\n🚀 {_('system_passed')}", "44")
-    elif not geoip_match or (dns_code != main_code and dns_code != "ERROR" and dns_code != "ERROR_MISSING_TOOL"):
+    elif not geoip_match or dns_code != main_code:
          print_colored(f"\n⚠ {_('vpn_failed')}", "43;30")
 
 def main():
     global main_code, primary_ip
     
     ip_api_map = {'ip': 'query', 'country_code': 'countryCode'}
+    # Требует установленной библиотеки requests
     ip_api_data = get_data('http://ip-api.com/json/?fields=countryCode,query', ip_api_map) 
     
     if not ip_api_data or not ip_api_data.get('country_code'):
@@ -311,4 +286,27 @@ def main():
     check_geoip_and_register("4. Banks/Security", 'https://api.ipregistry.co/?key=tryout', {'country_code': 'location.country.code'}, "1;34")
     
     # 5 (Был 8)
-    check_geoip_and
+    check_geoip_and_register("5. FreeGeoIP.app", 'https://freegeoip.app/json/', {'country_code': 'country_code'}, "1;33") 
+    
+    # 6 (Был 10)
+    check_geoip_and_register("6. General Platform", 'https://ifconfig.co/json', {'country_code': 'country_iso'}, "1;32") 
+    
+    # 7 (НОВЫЙ: ipapi.co)
+    check_geoip_and_register("7. GeoIP ipapi.co", 'https://ipapi.co/json/', {'country_code': 'country_code'}, "1;36")
+
+    # 8 (НОВЫЙ: ipleak.net)
+    check_geoip_and_register("8. VPN/Ipleak.net", 'https://ip.ipleak.net/json/', {'country_code': 'country_code'}, "1;32") 
+    
+    # 9 (НОВЫЙ: api.db-ip.com)
+    check_geoip_and_register("9. GeoIP DB-IP.com", 'https://api.db-ip.com/v2/free/self', {'country_code': 'countryCode'}, "1;33")
+
+
+    # --- DNS Leak Check ---
+    # Обновлен номер проверки на 10
+    dns_code = check_dns_leak()
+
+    # --- Final Output ---
+    check_compliance(dns_code)
+
+if __name__ == "__main__":
+    main()
