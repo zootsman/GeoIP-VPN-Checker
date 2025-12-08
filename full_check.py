@@ -11,18 +11,23 @@ import locale
 animation_stop_event = threading.Event()
 MIN_ANIMATION_TIME = 2.0
 COLOR_CYCLE_CODES = ["32", "33", "36"] # Green, Yellow, Cyan
-# Обновлено: Теперь 9 GeoIP-проверок
 CHECK_COUNT = 9
 # --------------------------------------------------------
 
 # --- ЛОКАЛИЗАЦИЯ: ОПРЕДЕЛЕНИЕ ЯЗЫКА И СЛОВАРЬ ПЕРЕВОДОВ ---
 SYSTEM_LANG = 'en'
+
+# !!! ИСПРАВЛЕННЫЙ БЛОК ОПРЕДЕЛЕНИЯ ЯЗЫКА !!!
 try:
-    lang_code, _ = locale.getdefaultlocale()
-    if lang_code:
-        SYSTEM_LANG = lang_code[:2].lower()
+    # Используем locale.getlocale() и парсим результат, чтобы избежать DeprecationWarning
+    lang_info = locale.getlocale()
+    if lang_info and lang_info[0]:
+        SYSTEM_LANG = lang_info[0].split('_')[0].lower()
 except Exception:
-    pass
+    SYSTEM_LANG = 'en'
+if not SYSTEM_LANG:
+    SYSTEM_LANG = 'en'
+# ----------------------------------------
 
 TRANSLATIONS = {
     'en': {
@@ -190,6 +195,7 @@ def check_dns_leak():
     print_colored(f"--- {_('dns_leak_check')} ---", "1;37")
     
     try:
+        # Требуется установленная команда dig (dnsutils)
         process = subprocess.run(
             ['dig', '+short', 'whoami.akamai.net', '@resolver1.opendns.com'],
             capture_output=True,
@@ -215,6 +221,7 @@ def check_dns_leak():
         return "ERROR"
 
     except FileNotFoundError:
+        # Если dig не найден, выводим ошибку и возвращаем ERROR
         print_colored(_('dig_not_found'), "41")
         return "ERROR"
     except Exception:
@@ -241,6 +248,7 @@ def check_compliance(dns_code):
         print_colored(_('geoip_failure'), "41")
 
     # 2. DNS Check
+    # dns_code == "ERROR" считается провалом (либо dig не найден, либо произошла ошибка)
     if dns_code != "ERROR" and dns_code != main_code:
         print_colored(_('dns_leak_failure') % (main_code, dns_code), "41")
     elif dns_code == main_code:
@@ -255,6 +263,7 @@ def main():
     global main_code, primary_ip
     
     ip_api_map = {'ip': 'query', 'country_code': 'countryCode'}
+    # Требует установленной библиотеки requests
     ip_api_data = get_data('http://ip-api.com/json/?fields=countryCode,query', ip_api_map) 
     
     if not ip_api_data or not ip_api_data.get('country_code'):
